@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import yaml
 from fastapi.testclient import TestClient
@@ -61,7 +62,7 @@ def test_metrics_endpoint_when_available() -> None:
 
 def test_ready_and_predict_with_instances_when_model_exists(
     project_root: Path,
-    sample_raw_df,
+    sample_raw_df: pd.DataFrame,
     sample_config: dict,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -193,7 +193,9 @@ def _load_model_for_serving(model_name: str) -> tuple[Any, list[str], str]:
 @app.get("/ready")
 def ready() -> dict[str, Any]:
     """Readiness: model loadable and ready to serve predictions. Returns 503 if not ready.
-    Response includes model_source ('registry' or 'artifacts') and model_uri when using registry."""
+
+    Response includes model_source ('registry' or 'artifacts') and model_uri when using registry.
+    """
     config = _get_serving_config()
     prod = config.get("production", {})
     default_name = (
@@ -217,7 +219,7 @@ def ready() -> dict[str, Any]:
 
 
 def _serve_train_enabled() -> bool:
-    """True if train endpoint is enabled (disabled when INVESTOR_ML_SERVE_PREDICT_ONLY is set)."""
+    """Return True if train endpoint is enabled (disabled when INVESTOR_ML_SERVE_PREDICT_ONLY is set)."""
     return os.environ.get("INVESTOR_ML_SERVE_PREDICT_ONLY", "").lower() not in ("1", "true", "yes")
 
 

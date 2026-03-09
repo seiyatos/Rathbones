@@ -8,9 +8,9 @@ from typing import Any
 
 from investor_ml.core.config import get_project_root, load_config
 from investor_ml.data.load import load_raw_data
-from investor_ml.tracking.mlflow_tracking import log_training_run, setup_mlflow
 from investor_ml.models.evaluate import compare_models_auroc
 from investor_ml.models.train import train_models
+from investor_ml.tracking.mlflow_tracking import log_training_run, setup_mlflow
 
 logger = logging.getLogger(__name__)
 
