@@ -1,64 +1,169 @@
-build-and-push-ecr-image:
-  name: Continuous Delivery
-  needs: integration
-  runs-on: ubuntu-latest
-  outputs:
-    image_uri: ${{ steps.build-image.outputs.image }}
+name: CI/CD
 
-  steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "README.md"
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+permissions:
+  id-token: write
+  contents: read
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
+  IMAGE_TAG: ${{ github.sha }}
 
-    - name: Build, tag, and push image to Amazon ECR
-      id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-        LATEST_URI="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+jobs:
+  integration:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
 
-        docker build -t "$IMAGE_URI" -f ./Dockerfile .
-        docker push "$IMAGE_URI"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        docker tag "$IMAGE_URI" "$LATEST_URI"
-        docker push "$LATEST_URI"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-        echo "image=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+      - name: Cache .venv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-py3.12-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            venv-${{ runner.os }}-py3.12-
 
-continuous-deployment:
-  name: Deploy to self-hosted
-  needs: build-and-push-ecr-image
-  runs-on: self-hosted
+      - name: Install dependencies
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install ruff pytest
 
-  steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Ensure tooling exists after cache restore
+        if: steps.cache-venv.outputs.cache-hit == 'true'
+        run: |
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install ruff pytest
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      - name: Lint code
+        run: |
+          . .venv/bin/activate
+          ruff check src tests
 
-    - name: Login to Amazon ECR
-      uses: aws-actions/amazon-ecr-login@v2
+      - name: Run unit tests
+        run: |
+          . .venv/bin/activate
+          pytest tests -v --tb=short
 
-    - name: Debug image URI
-      run: echo "IMAGE=${{ needs.build-and-push-ecr-image.outputs.image_uri }}"
+  build-and-push-ecr-image:
+    name: Build and Push to ECR
+    needs: integration
+    runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.build-image.outputs.image }}
 
-    - name: Pull latest built image
-      run: docker pull "${{ needs.build-and-push-ecr-image.outputs.image_uri }}"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --region "$AWS_REGION" \
+          || aws ecr create-repository \
+            --repository-name "$ECR_REPOSITORY" \
+            --region "$AWS_REGION"
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          LATEST_URI="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+          echo "Building image: $IMAGE_URI"
+
+          docker build -t "$IMAGE_URI" -f Dockerfile .
+          docker push "$IMAGE_URI"
+
+          docker tag "$IMAGE_URI" "$LATEST_URI"
+          docker push "$LATEST_URI"
+
+          echo "image=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Debug built image output
+        run: echo "Built image output='${{ steps.build-image.outputs.image }}'"
+
+  continuous-deployment:
+    name: Deploy to self-hosted
+    needs: build-and-push-ecr-image
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Debug image URI from previous job
+        run: echo "Deploy image='${{ needs.build-and-push-ecr-image.outputs.image_uri }}'"
+
+      - name: Pull exact image
+        run: docker pull "${{ needs.build-and-push-ecr-image.outputs.image_uri }}"
+
+      - name: Stop and remove container if running
+        run: |
+          docker ps -aq --filter "name=^investor-ml$" | grep -q . && \
+          docker stop investor-ml && \
+          docker rm -f investor-ml || true
+
+      - name: Ensure local mount directories exist
+        run: |
+          mkdir -p "$(pwd)/config"
+          mkdir -p "$(pwd)/artifacts"
+
+      - name: Run Docker image
+        run: |
+          docker run -d \
+            -p 8000:8000 \
+            --name investor-ml \
+            --restart unless-stopped \
+            -v "$(pwd)/config:/app/config" \
+            -v "$(pwd)/artifacts:/app/artifacts" \
+            -e INVESTOR_ML_CONFIG_PATH=/app/config/config.yaml \
+            -e INVESTOR_ML_SERVE_PREDICT_ONLY=1 \
+            "${{ needs.build-and-push-ecr-image.outputs.image_uri }}"
+
+      - name: Clean previous images and containers
+        run: docker system prune -f
