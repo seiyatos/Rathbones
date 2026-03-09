@@ -43,9 +43,17 @@ try:
         "Predicted probability of Decline (class 1); use for model drift (distribution shift)",
         ["model_source", "model_name"],
     )
+    _REQUEST_FEATURE = Summary(
+        "investor_ml_request_feature",
+        "Input feature value from predict requests (for data drift: compare mean/quantiles to training baseline)",
+        ["feature"],
+    )
     _PROMETHEUS_AVAILABLE = True
 except ImportError:
     _PROMETHEUS_AVAILABLE = False
+
+# Numeric request fields to record for data-drift metrics (instances only)
+_DRIFT_FEATURE_KEYS = ("deal_size", "invite", "rating", "covenants", "total_fees", "fee_share")
 
 app = FastAPI(
     title="Investor ML API",
@@ -156,6 +164,17 @@ def _record_predict_metrics(
     if probabilities_decline:
         for prob in probabilities_decline:
             _PREDICT_PROBA.labels(model_source=model_source, model_name=model_name).observe(prob)
+
+
+def _record_data_drift_metrics(instances: list[dict[str, Any]]) -> None:
+    """Record numeric input feature values for data-drift monitoring (instances only)."""
+    if not _PROMETHEUS_AVAILABLE:
+        return
+    for row in instances:
+        for key in _DRIFT_FEATURE_KEYS:
+            val = row.get(key)
+            if isinstance(val, (int, float)):
+                _REQUEST_FEATURE.labels(feature=key).observe(float(val))
 
 
 def _get_serving_config() -> dict[str, Any]:
@@ -365,6 +384,7 @@ def predict(body: PredictRequest) -> dict[str, Any]:
     model_uri = (prod.get("model_uri") or os.environ.get("INVESTOR_ML_MODEL_URI")) if source == "registry" else None
 
     if use_instances:
+        _record_data_drift_metrics(body.instances or [])
         result = _predict_from_instances(
             body.instances,
             pipeline,

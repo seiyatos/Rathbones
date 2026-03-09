@@ -48,9 +48,9 @@ This doc describes how to monitor **model drift** and **data drift** for the Inv
 Investor ML API (/metrics)  -->  Prometheus (scrape)  -->  Grafana (dashboards & alerts)
 ```
 
-### Metrics the API exposes (optional)
+### Metrics the API exposes
 
-If you install the optional `prometheus_client` dependency and run the API, **`GET /metrics`** exposes:
+**`GET /metrics`** (when `prometheus_client` is installed) exposes:
 
 | Metric | Type | Labels | Use for |
 |--------|------|--------|--------|
@@ -58,8 +58,9 @@ If you install the optional `prometheus_client` dependency and run the API, **`G
 | `investor_ml_predict_duration_seconds` | Histogram | `model_source`, `model_name` | Latency (p50, p95, etc.) |
 | `investor_ml_predictions_total` | Counter | `model_source`, `model_name`, `predicted_class` | **Model drift**: ratio of class 0 vs 1 over time |
 | `investor_ml_predict_probability_decline` | Summary | `model_source`, `model_name` | **Model drift**: distribution of P(Decline); compare to baseline |
+| `investor_ml_request_feature` | Summary | `feature` | **Data drift**: input feature values (deal_size, invite, rating, covenants, total_fees, fee_share) from `instances`; compare mean/quantiles to training baseline |
 
-Data drift (input feature stats) is not yet exported; you can add histograms for key features from request bodies or compute drift scores in a separate job and expose them.
+Model drift: use prediction counts and probability summaries over time. Data drift: use `investor_ml_request_feature_sum` / `investor_ml_request_feature_count` (or quantiles) per `feature` and compare to your training statistics.
 
 You then:
 
@@ -83,11 +84,10 @@ scrape_configs:
 
 - **Data source:** Add Prometheus (e.g. `http://prometheus:9090`).
 - **Dashboard panels:**  
-  - Time series: `rate(investor_ml_predict_requests_total[5m])` by `model_source`.  
-  - Time series: `histogram_quantile(0.5, rate(investor_ml_predict_duration_seconds_bucket[5m]))` (median latency).  
-  - Time series: `rate(investor_ml_predictions_total{predicted_class="1"}[1h]) / rate(investor_ml_predictions_total[1h])` (fraction of predictions that are Decline — **model drift**).  
-  - Time series: `rate(investor_ml_predict_probability_decline_sum[1h]) / rate(investor_ml_predict_probability_decline_count[1h])` (mean predicted P(Decline) over the last hour).  
-- **Alerts:** Create alert rules when a metric crosses a threshold (e.g. fraction of class 1 &lt; 0.2 or &gt; 0.8 for several minutes, or mean probability moves far from your baseline).
+  - **Model drift:** `rate(investor_ml_predictions_total{predicted_class="1"}[1h]) / rate(investor_ml_predictions_total[1h])` (fraction Decline); `rate(investor_ml_predict_probability_decline_sum[1h]) / rate(investor_ml_predict_probability_decline_count[1h])` (mean P(Decline)).  
+  - **Data drift:** `rate(investor_ml_request_feature_sum{feature="deal_size"}[1h]) / rate(investor_ml_request_feature_count{feature="deal_size"}[1h])` (mean deal_size in requests); same for `invite`, `rating`, `covenants`, `total_fees`, `fee_share`. Compare to training means.  
+  - Request rate and latency as above.  
+- **Alerts:** Create alert rules when a metric crosses a threshold (e.g. fraction of class 1 or mean probability moves far from baseline; mean request feature moves far from training baseline).
 
 ---
 

@@ -104,9 +104,26 @@ curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -
 
 If you serve from the **MLflow registry** instead of artifacts, see the Dockerfile header and [docs/PRODUCTION.md](docs/PRODUCTION.md).
 
+### Docker Compose (API + Prometheus + Grafana)
+
+Run the API with Prometheus and Grafana so you can see metrics (e.g. for [model drift](docs/MONITORING.md)):
+
+```bash
+# From project root; ensure config/ and artifacts/ (with a trained model) exist
+docker compose up -d
+```
+
+| Service    | URL                     |
+|-----------|-------------------------|
+| API       | http://localhost:8000   |
+| Prometheus| http://localhost:9090   |
+| Grafana   | http://localhost:3000   |
+
+Grafana default login: **admin** / **admin** (change on first use). Prometheus is pre-configured as the default data source. Example metrics: `investor_ml_predict_requests_total`, `investor_ml_predictions_total`, `investor_ml_predict_probability_decline`.
+
 ## Production
 
-For deployment (env-based config, health/ready, MLflow registry, Docker), see **[docs/PRODUCTION.md](docs/PRODUCTION.md)**. For **model drift**, **data drift**, and **Grafana + Prometheus** monitoring, see **[docs/MONITORING.md](docs/MONITORING.md)**.
+For deployment (env-based config, health/ready, MLflow registry, Docker), see **[docs/PRODUCTION.md](docs/PRODUCTION.md)**. For **AWS EC2 + ECR** (run full stack from ECR image on EC2), see **[docs/DEPLOY-EC2-ECR.md](docs/DEPLOY-EC2-ECR.md)**. For **model drift**, **data drift**, and **Grafana + Prometheus** monitoring, see **[docs/MONITORING.md](docs/MONITORING.md)**.
 
 ## MLflow
 

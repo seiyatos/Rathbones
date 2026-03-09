@@ -1,0 +1,63 @@
+# Stack for EC2: pull investor-ml from AWS ECR; Prometheus and Grafana from Docker Hub.
+# Usage on EC2:
+#   export ECR_URI=123456789012.dkr.ecr.us-east-1.amazonaws.com/investor-ml
+#   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
+#   docker compose -f docker-compose.ec2.yml up -d
+#
+# Ensure config/ and artifacts/ exist on the EC2 instance (e.g. clone repo or copy from S3).
+
+services:
+  investor-ml:
+    image: ${ECR_URI:-123456789012.dkr.ecr.us-east-1.amazonaws.com/investor-ml}:latest
+    container_name: investor-ml
+    ports:
+      - "8000:8000"
+    environment:
+      - INVESTOR_ML_CONFIG_PATH=/app/config/config.yaml
+      - INVESTOR_ML_SERVE_PREDICT_ONLY=1
+    volumes:
+      - ./config:/app/config
+      - ./artifacts:/app/artifacts
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    restart: unless-stopped
+    depends_on:
+      investor-ml:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_HTTP_PORT=3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  grafana_data:

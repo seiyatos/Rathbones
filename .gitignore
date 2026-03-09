@@ -38,6 +38,8 @@ data/raw/*.csv
 !data/raw/.gitkeep
 !data/raw/invest.csv
 data/processed/
+docs/MONITORING.md
+docs/DEPLOY-EC2-ECR.md
 artifacts/
 # Feast generated: registry.db, online_store.db, parquet caches (regenerate via pipeline)
 feature_repo/data/*.db
