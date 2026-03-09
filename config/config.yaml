@@ -1,0 +1,88 @@
+# Investor ML pipeline configuration
+# Paths are relative to project root unless absolute.
+
+seed: 1
+
+data:
+  raw_path: "data/raw/invest.csv"
+  processed_dir: "data/processed"
+  artifacts_dir: "artifacts"
+  features_parquet: "data/processed/investor_features.parquet"
+
+feast:
+  repo_path: "feature_repo"
+  entity_id_column: "deal_id"
+  event_timestamp_column: "event_timestamp"
+  feature_view_name: "investor_features"
+  online_store_type: "sqlite"  # or "redis" (install feast[redis])
+  online_store_path: "data/processed/feast_online.db"
+
+splits:
+  test_size: 0.2
+  stratify_column: "commit_Decline"  # used after one-hot to stratify
+
+feature_engineering:
+  drop_columns: ["invite_tier", "fee_share", "invite"]
+  fee_percent:  # fee_share / total_fees
+    numerator: "fee_share"
+    denominator: "total_fees"
+  invite_percent:  # invite / deal_size
+    numerator: "invite"
+    denominator: "deal_size"
+  target_column: "commit_Decline"
+  drop_after_dummies: ["commit_Commit"]
+
+models:
+  scaler: "StandardScaler"
+  candidates:
+    l1_logistic:
+      estimator: "LogisticRegression"
+      penalty: "l1"
+      solver: "saga"
+      max_iter: 2000
+      param_grid:
+        C: [0.1, 1, 10]
+    l2_logistic:
+      estimator: "LogisticRegression"
+      penalty: "l2"
+      solver: "lbfgs"
+      max_iter: 2000
+      param_grid:
+        C: [0.1, 1, 10]
+    random_forest:
+      estimator: "RandomForestClassifier"
+      param_grid:
+        n_estimators: [100, 200]
+        max_features: [0.1, 0.6]
+    gradient_boosting:
+      estimator: "GradientBoostingClassifier"
+      param_grid:
+        n_estimators: [100, 200]
+        learning_rate: [0.05, 0.1, 0.2]
+        max_depth: [1, 3, 5]
+
+tuning:
+  cv: 5
+  scoring: "roc_auc"
+  n_jobs: -1
+
+evaluation:
+  primary_metric: "roc_auc"
+  probability_positive_class: 1  # commit_Decline = 1
+
+mlflow:
+  tracking_uri: "mlruns"
+  experiment_name: "investor_ml"
+  log_models: true
+  registry_name: "investor_ml"   # name used when registering best model for production
+
+# Optional production overrides (or use env INVESTOR_ML_*)
+production:
+  model_source: "artifacts"     # or "registry" to load from MLflow Model Registry
+  model_uri: "models:/investor_ml/Production"
+  default_model_name: "gradient_boosting"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+  file: "logs/app.log"

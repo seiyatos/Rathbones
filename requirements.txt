@@ -1,0 +1,14 @@
+# Core (pin for reproducibility; update with care)
+numpy>=1.24.0,<3
+pandas>=2.0.0
+scikit-learn>=1.3.0
+pyyaml>=6.0
+joblib>=1.3.0
+feast>=0.36.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# Dev (optional)
+# pytest>=7.0
+# pytest-cov>=4.0
+# ruff>=0.1.0

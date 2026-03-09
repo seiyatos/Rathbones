@@ -1,0 +1,52 @@
+2026-03-09 06:22:33,228 | INFO | investor_ml.tracking.mlflow_tracking | MLflow tracking_uri=file:///C:/Users/Seiya/Desktop/RathBones/mlruns experiment=investor_ml
+2026-03-09 06:22:33,260 | INFO | investor_ml.data.load | Loaded raw data: path=C:\Users\Seiya\Desktop\RathBones\data\raw\syndicated_revolver.csv shape=(7289, 11)
+2026-03-09 06:22:33,295 | INFO | investor_ml.features.engineering | Feature engineering done: shape=(7289, 17)
+2026-03-09 06:22:33,403 | INFO | investor_ml.store.feast_store | Ingested features to Parquet: path=C:\Users\Seiya\Desktop\RathBones\data\processed\investor_features.parquet shape=(7289, 19)
+2026-03-09 06:22:36,880 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,926 | INFO | investor_ml.store.feast_store | Applied Feast repo (entity + feature view)
+2026-03-09 06:22:36,930 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,946 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,949 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,952 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,955 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,957 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,959 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,961 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,963 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,964 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,966 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,968 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,970 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,972 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,973 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,976 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,978 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,979 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:36,999 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:22:37,199 | INFO | investor_ml.store.feast_store | Retrieved historical features: shape=(7289, 19)
+2026-03-09 06:22:37,208 | INFO | investor_ml.models.train | Split: train=5831 test=1458
+2026-03-09 06:22:45,650 | INFO | investor_ml.models.train | Model l1_logistic best CV roc_auc=0.9430
+2026-03-09 06:22:45,654 | INFO | investor_ml.models.train | Saved artifact: artifacts\model_l1_logistic.joblib
+2026-03-09 06:22:48,627 | INFO | investor_ml.models.train | Model l2_logistic best CV roc_auc=0.9430
+2026-03-09 06:22:48,630 | INFO | investor_ml.models.train | Saved artifact: artifacts\model_l2_logistic.joblib
+2026-03-09 06:22:54,610 | INFO | investor_ml.models.train | Model random_forest best CV roc_auc=0.9892
+2026-03-09 06:22:54,686 | INFO | investor_ml.models.train | Saved artifact: artifacts\model_random_forest.joblib
+2026-03-09 06:23:17,632 | INFO | investor_ml.models.train | Model gradient_boosting best CV roc_auc=0.9896
+2026-03-09 06:23:17,647 | INFO | investor_ml.models.train | Saved artifact: artifacts\model_gradient_boosting.joblib
+2026-03-09 06:23:17,653 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:23:17,664 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:23:17,668 | INFO | feast.infra.registry.registry | Registry cache expired, so refreshing
+2026-03-09 06:23:22,093 | INFO | investor_ml.store.feast_store | Materialized to online store: view=investor_features end_date=2026-03-09 06:23:17.652280+00:00
+2026-03-09 06:23:22,118 | INFO | investor_ml.models.evaluate | AUROC (from probabilities): 0.9396 | CM: [[1108, 46], [102, 202]]
+2026-03-09 06:23:22,127 | INFO | investor_ml.models.evaluate | AUROC (from probabilities): 0.9397 | CM: [[1108, 46], [102, 202]]
+2026-03-09 06:23:22,180 | INFO | investor_ml.models.evaluate | AUROC (from probabilities): 0.9872 | CM: [[1135, 19], [40, 264]]
+2026-03-09 06:23:22,200 | INFO | investor_ml.models.evaluate | AUROC (from probabilities): 0.9890 | CM: [[1131, 23], [46, 258]]
+2026-03-09 06:23:22,214 | INFO | investor_ml.models.evaluate | Model comparison (test AUROC from probabilities):
+               model  test_roc_auc
+0  gradient_boosting      0.989018
+1      random_forest      0.987157
+2        l2_logistic      0.939664
+3        l1_logistic      0.939607
+2026-03-09 06:23:34,957 | INFO | investor_ml.tracking.mlflow_tracking | Registered best model 'gradient_boosting' as 'investor_ml' in same run
+2026-03-09 06:23:34,958 | INFO | investor_ml.tracking.mlflow_tracking | MLflow run logged: 10d2679e3bb342faaaef24831923377c
+2026-03-09 06:31:30,316 | INFO | investor_ml.features.engineering | Feature engineering done: shape=(1, 9)

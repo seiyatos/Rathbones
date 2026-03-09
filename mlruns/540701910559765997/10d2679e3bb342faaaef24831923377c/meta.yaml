@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/Seiya/Desktop/RathBones/mlruns/540701910559765997/10d2679e3bb342faaaef24831923377c/artifacts
+end_time: 1773037414958
+entry_point_name: ''
+experiment_id: '540701910559765997'
+lifecycle_stage: active
+run_id: 10d2679e3bb342faaaef24831923377c
+run_name: rumbling-seal-519
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1773037402509
+status: 3
+tags: []
+user_id: seiya.david

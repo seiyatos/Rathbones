@@ -1,0 +1,97 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "investor-ml"
+version = "0.1.0"
+description = "RathBones: ML pipeline for investor commit/decline prediction"
+readme = "README.md"
+requires-python = ">=3.12, <3.13"
+license = { text = "MIT" }
+authors = [{ name = "Seiya David" }]
+dependencies = [
+    "mlflow==3.1.1",
+    "cffi==1.17.1",
+    "cloudpickle==3.1.1",
+    "numpy==1.26.4",
+    "pandas==2.3.0",
+    "pyarrow==17.0.0",
+    "scikit-learn==1.7.0",
+    "lightgbm==4.6.0",
+    "scipy==1.16.0",
+    "databricks-sdk==0.55.0",
+    "pydantic==2.11.7",
+    "loguru==0.7.3",
+    "python-dotenv==1.1.1",
+    "seaborn>=0.13.2",
+    "feast>=0.36.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pytest>=9.0.2",
+    "pytest-cov>=4.0.0",
+    "httpx>=0.28.1",
+    "ruff>=0.15.5",
+    "scalar-fastapi>=1.8.0",
+    "prometheus-client>=0.24.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+]
+monitoring = [
+    "prometheus-client>=0.21.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+lint.select = [
+    "F",    # pyflakes rules
+    "E",    # pycodestyle error rules
+    "W",    # pycodestyle warning rules
+    "B",    # flake8-bugbear rules
+    "I",    # isort rules
+    "UP",   # pyupgrade rules
+    "SIM",  # flake8-simplify rules
+    "ERA",  # eradicate rules
+    "C",    # pylint convention rules
+    "D",    # pydocstyle rules
+    "ANN"   # flake8-annotations rules
+]
+lint.ignore = [
+    "D103", # Missing docstring in public package
+    "D104", # Missing docstring in public method
+    "D107", # Missing docstring in `__init__`
+    "D203", # incorrect-blank-line-before-class
+    "D213", # multi-line-summary-second-line
+    "E501", # line-too-long
+    "C901", # too complex
+    "ERA001", # commented out code
+    "D100", # missing docstring
+    "ANN401", # Any for third-party (Feast, sklearn, mlflow)
+]
+
+[tool.ruff.format]
+indent-style = "space"
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src/investor_ml"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "def __repr__", "raise NotImplementedError"]
+
+[tool.coverage.html]
+directory = "htmlcov"

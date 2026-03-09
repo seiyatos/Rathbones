@@ -1,0 +1,44 @@
+# Git and IDE
+.git
+.gitignore
+.cursor
+.venv
+venv
+env
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Build / install metadata
+src/*.egg-info
+*.egg-info
+*.egg
+build
+dist
+
+# Data and artifacts (mount at run time)
+data/raw/*
+data/processed/*
+artifacts/*
+mlruns/*
+logs/*
+
+# Docs and dev (not needed in image)
+docs
+tests
+*.md
+!README.md
+
+# Docker
+Dockerfile*
+.dockerignore
+compose*.yml
+*.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db
