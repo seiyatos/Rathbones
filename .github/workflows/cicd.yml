@@ -166,4 +166,4 @@ jobs:
             "${{ needs.build-and-push-ecr-image.outputs.image_uri }}"
 
       - name: Clean unused Docker resources
-        run: docker system prune -f
+        run: docker system prune -f 
