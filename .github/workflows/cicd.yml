@@ -134,13 +134,21 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Login to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Debug image URI from previous job
-        run: echo "Deploy image='${{ needs.build-and-push-ecr-image.outputs.image_uri }}'"
+      - name: Set image URI
+        id: image
+        run: |
+          REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          REPO="${{ secrets.ECR_REPOSITORY_NAME }}"
+          if [ -z "$REPO" ]; then echo "::error::ECR_REPOSITORY_NAME secret is not set"; exit 1; fi
+          IMAGE_URI="$REGISTRY/$REPO:latest"
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+          echo "Pulling $IMAGE_URI"
 
-      - name: Pull exact image
-        run: docker pull "${{ needs.build-and-push-ecr-image.outputs.image_uri }}"
+      - name: Pull latest image
+        run: docker pull "${{ steps.image.outputs.image_uri }}"
 
       - name: Stop and remove container if running
         run: |
@@ -163,7 +171,7 @@ jobs:
             -v "$(pwd)/artifacts:/app/artifacts" \
             -e INVESTOR_ML_CONFIG_PATH=/app/config/config.yaml \
             -e INVESTOR_ML_SERVE_PREDICT_ONLY=1 \
-            "${{ needs.build-and-push-ecr-image.outputs.image_uri }}"
+            "${{ steps.image.outputs.image_uri }}"
 
       - name: Clean previous images and containers
         run: docker system prune -f

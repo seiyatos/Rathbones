@@ -43,9 +43,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install built wheel and production dependencies only
-COPY --from=builder /build/dist/*.whl /tmp/
-RUN pip install --no-cache-dir /tmp/*.whl && rm -rf /tmp/*.whl
+# Install built wheel and production dependencies only (copy dir to avoid glob issues)
+COPY --from=builder /build/dist/ /tmp/wheels/
+RUN pip install --no-cache-dir /tmp/wheels/*.whl && rm -rf /tmp/wheels
 
 # App code (config, feature_repo) — override with mounts if needed
 COPY config/ config/
@@ -60,6 +60,10 @@ ENV INVESTOR_ML_CONFIG_PATH=/app/config/config.yaml
 # Predict-only: omit /train endpoint (set to 0 or unset to enable train)
 ENV INVESTOR_ML_SERVE_PREDICT_ONLY=1
 EXPOSE 8000
+
+# Optional: healthcheck so orchestrators can detect when the app is ready
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')" || exit 1
 
 # Single-worker default; for production override with multi-worker (e.g. gunicorn + uvicorn workers)
 CMD ["uvicorn", "investor_ml.web.api:app", "--host", "0.0.0.0", "--port", "8000"]
