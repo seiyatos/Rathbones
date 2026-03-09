@@ -163,27 +163,6 @@ jobs:
           mkdir -p "$(pwd)/config"
           mkdir -p "$(pwd)/artifacts"
 
-      # Optional: sync config and/or artifacts from S3 so the container has the model (e.g. ARTIFACTS_S3_URI=s3://bucket/path/artifacts/)
-      - name: Sync config from S3
-        if: ${{ secrets.CONFIG_S3_URI != '' }}
-        run: |
-          aws s3 sync "${{ secrets.CONFIG_S3_URI }}" "$(pwd)/config" --exact-timestamps
-
-      - name: Sync artifacts from S3
-        if: ${{ secrets.ARTIFACTS_S3_URI != '' }}
-        run: |
-          aws s3 sync "${{ secrets.ARTIFACTS_S3_URI }}" "$(pwd)/artifacts" --exact-timestamps
-          echo "Artifacts in $(pwd)/artifacts:"
-          ls -la "$(pwd)/artifacts" || true
-
-      - name: Verify model artifact before run
-        run: |
-          ARTIFACTS_DIR="$(pwd)/artifacts"
-          if [ ! -f "$ARTIFACTS_DIR/model_gradient_boosting.joblib" ]; then
-            echo "::warning::artifacts/model_gradient_boosting.joblib not found. Set ARTIFACTS_S3_URI (and CONFIG_S3_URI) or copy config + artifacts to EC2 so /predict works."
-            ls -la "$ARTIFACTS_DIR" 2>/dev/null || true
-          fi
-
       - name: Run Docker image
         run: |
           docker run -d \
