@@ -5,18 +5,24 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'README.md'
+      - "README.md"
 
 permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
+  IMAGE_TAG: ${{ github.sha }}
+
 jobs:
   integration:
     name: Continuous Integration
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -38,8 +44,16 @@ jobs:
         run: |
           python -m venv .venv
           . .venv/bin/activate
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -e .
+          pip install ruff pytest
+
+      - name: Ensure tooling exists after cache restore
+        if: steps.cache-venv.outputs.cache-hit == 'true'
+        run: |
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install ruff pytest
 
       - name: Lint code
         run: |
@@ -52,79 +66,104 @@ jobs:
           pytest tests -v --tb=short
 
   build-and-push-ecr-image:
-    name: Continuous Delivery
+    name: Build and Push to ECR
     needs: integration
     runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.build-image.outputs.image }}
+
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          aws-region: ${{ env.AWS_REGION }}
+          # Preferred:
+          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          # role-session-name: github-actions-ecr
+          #
+          # If you still want static secrets temporarily, use:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --region "$AWS_REGION" \
+          || aws ecr create-repository \
+            --repository-name "$ECR_REPOSITORY" \
+            --region "$AWS_REGION"
 
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
-          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f ./Dockerfile .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          LATEST_URI="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+          docker build -f Dockerfile -t "$IMAGE_URI" .
+          docker push "$IMAGE_URI"
+
+          docker tag "$IMAGE_URI" "$LATEST_URI"
+          docker push "$LATEST_URI"
+
+          echo "image=$IMAGE_URI" >> "$GITHUB_OUTPUT"
 
   continuous-deployment:
     name: Deploy to self-hosted
     needs: build-and-push-ecr-image
     runs-on: self-hosted
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          aws-region: ${{ env.AWS_REGION }}
+          # Preferred:
+          # role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          # role-session-name: github-actions-deploy
+          #
+          # Temporary static secrets:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Pull latest image
+      - name: Pull exact image built in previous job
         run: |
-          docker pull ${{ secrets.AWS_ECR_LOGIN_URI }}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+          docker pull "${{ needs.build-and-push-ecr-image.outputs.image_uri }}"
 
-      - name: Stop and remove container if running
+      - name: Stop and remove existing container
         run: |
-          docker ps -q --filter "name=investor-ml" | grep -q . && docker stop investor-ml && docker rm -fv investor-ml || true
+          docker ps -aq --filter "name=^investor-ml$" | grep -q . && \
+          docker stop investor-ml && \
+          docker rm -f investor-ml || true
 
-      - name: Run Docker image
+      - name: Run Docker container
         run: |
+          mkdir -p "$(pwd)/config" "$(pwd)/artifacts"
+
           docker run -d \
             -p 8000:8000 \
             --name investor-ml \
             --restart unless-stopped \
-            -v $(pwd)/config:/app/config \
-            -v $(pwd)/artifacts:/app/artifacts \
-            -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-            -e AWS_REGION=${{ secrets.AWS_REGION }} \
+            -v "$(pwd)/config:/app/config" \
+            -v "$(pwd)/artifacts:/app/artifacts" \
             -e INVESTOR_ML_CONFIG_PATH=/app/config/config.yaml \
             -e INVESTOR_ML_SERVE_PREDICT_ONLY=1 \
-            ${{ secrets.AWS_ECR_LOGIN_URI }}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+            "${{ needs.build-and-push-ecr-image.outputs.image_uri }}"
 
-      - name: Clean previous images and containers
-        run: |
-          docker system prune -f
+      - name: Clean unused Docker resources
+        run: docker system prune -f
