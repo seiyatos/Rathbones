@@ -55,8 +55,9 @@ COPY feature_repo/ feature_repo/
 RUN mkdir -p data/raw data/processed artifacts logs mlruns
 
 ENV PYTHONUNBUFFERED=1
-# So config is found when running from container (app is in site-packages)
+# Paths so the app finds config and artifacts when run with -v mounts
 ENV INVESTOR_ML_CONFIG_PATH=/app/config/config.yaml
+ENV INVESTOR_ML_ARTIFACTS_DIR=/app/artifacts
 # Predict-only: omit /train endpoint (set to 0 or unset to enable train)
 ENV INVESTOR_ML_SERVE_PREDICT_ONLY=1
 EXPOSE 8000

@@ -182,6 +182,16 @@ def _get_serving_config() -> dict[str, Any]:
     return load_config(os.environ.get("INVESTOR_ML_CONFIG_PATH"))
 
 
+def _get_app_root() -> Path:
+    """Root directory for the app (parent of config/). In Docker this is /app."""
+    config_path = os.environ.get("INVESTOR_ML_CONFIG_PATH")
+    if config_path:
+        p = Path(config_path).resolve()
+        if p.exists():
+            return p.parent.parent  # config file -> config/ -> app root
+    return get_project_root()
+
+
 def _load_model_for_serving(model_name: str) -> tuple[Any, list[str], str]:
     """Load pipeline and feature names from artifacts dir or MLflow registry. Returns (pipeline, feature_names_in, model_name)."""
     config = _get_serving_config()
@@ -197,12 +207,16 @@ def _load_model_for_serving(model_name: str) -> tuple[Any, list[str], str]:
         pipeline = mlflow.sklearn.load_model(uri)
         feature_names_in = list(getattr(pipeline, "feature_names_in_", []))
         return pipeline, feature_names_in, model_name or "registry"
-    # Default: load from artifacts dir
+    # Default: load from artifacts dir (resolve relative paths from app root, e.g. /app in Docker)
     from investor_ml.models.train import load_trained_artifact
-    data_cfg = config.get("data", {})
-    artifacts_dir = Path(data_cfg.get("artifacts_dir", "artifacts"))
-    if not artifacts_dir.is_absolute():
-        artifacts_dir = get_project_root() / artifacts_dir
+    artifacts_dir = os.environ.get("INVESTOR_ML_ARTIFACTS_DIR")
+    if artifacts_dir:
+        artifacts_dir = Path(artifacts_dir)
+    else:
+        data_cfg = config.get("data", {})
+        artifacts_dir = Path(data_cfg.get("artifacts_dir", "artifacts"))
+        if not artifacts_dir.is_absolute():
+            artifacts_dir = _get_app_root() / artifacts_dir
     artifact = load_trained_artifact(artifacts_dir, model_name)
     pipeline = artifact["pipeline"]
     feature_names_in = list(artifact.get("feature_names_in", []))
@@ -374,7 +388,7 @@ def predict(body: PredictRequest) -> dict[str, Any]:
     except FileNotFoundError as e:
         raise HTTPException(
             status_code=404,
-            detail=f"Model '{model_name}' not found. Run POST /train first.",
+            detail=f"Model '{model_name}' not found. Run POST /train first. (Looked for: {e!s})",
         ) from e
     except ValueError as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
