@@ -94,6 +94,57 @@ class PredictRequest(BaseModel):
     )
 
 
+def _predict_ui_html() -> str:
+    """Load the predict UI HTML: from file next to this module, or embedded fallback."""
+    path = Path(__file__).resolve().parent / "static" / "predict_ui.html"
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    try:
+        from importlib.resources import files
+        return (
+            (files("investor_ml.web") / "static" / "predict_ui.html").read_text(
+                encoding="utf-8"
+            )
+        )
+    except Exception:
+        return _PREDICT_UI_HTML_FALLBACK
+
+
+# Minimal fallback if static file is missing (e.g. in Docker without package_data)
+_PREDICT_UI_HTML_FALLBACK = """<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>RathBones</title></head>
+<body style="font-family:sans-serif;max-width:520px;margin:2rem auto;padding:1rem;">
+<h1>RathBones</h1>
+<p>Investor commit / decline prediction</p>
+<form id="f"><label>Deal size <input type="number" id="deal_size" value="100"></label>
+<label> Invite <input type="number" id="invite" value="10"></label>
+<label> Rating <input type="number" id="rating" value="2"></label>
+<label> Int rate <input type="number" id="int_rate" value="5" step="0.1"></label>
+<label> Covenants <input type="number" id="covenants" value="1"></label>
+<label> Total fees <input type="number" id="total_fees" value="20"></label>
+<label> Fee share <input type="number" id="fee_share" value="5"></label>
+<label> Prior tier <input type="number" id="prior_tier" value="1"></label>
+<label> Invite tier <input type="number" id="invite_tier" value="1"></label>
+<button type="submit">Predict</button></form>
+<div id="out"></div>
+<a href="/docs">API docs</a>
+<script>
+document.getElementById('f').onsubmit=async e=>{e.preventDefault();
+const r=await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+instances:[{investor:'A',deal_size:+document.getElementById('deal_size').value,invite:+document.getElementById('invite').value,rating:+document.getElementById('rating').value,int_rate:+document.getElementById('int_rate').value,covenants:+document.getElementById('covenants').value,total_fees:+document.getElementById('total_fees').value,fee_share:+document.getElementById('fee_share').value,prior_tier:+document.getElementById('prior_tier').value,invite_tier:+document.getElementById('invite_tier').value}],return_proba:true})});
+const d=await r.json();
+document.getElementById('out').innerHTML=r.ok?('<p><b>'+(d.predictions[0]==1?'Decline':'Commit')+'</b>'+(d.probabilities_Decline?' P(Decline)='+(d.probabilities_Decline[0]*100).toFixed(1)+'%':'')+'</p>'):('<p style="color:red">'+d.detail+'</p>');
+};
+</script>
+</body></html>"""
+
+
+@app.get("/app", response_class=HTMLResponse)
+def predict_ui() -> str:
+    """Simple UI to run a prediction (Commit vs Decline)."""
+    return _predict_ui_html()
+
+
 @app.get("/")
 def root() -> dict[str, Any]:
     """Health and API info. Includes model_source so you can see if serving from registry or artifacts."""
@@ -101,6 +152,7 @@ def root() -> dict[str, Any]:
     source = prod.get("model_source", "artifacts")
     out: dict[str, Any] = {
         "service": "investor-ml",
+        "app": "/app",
         "docs": "/docs",
         "health": "/health",
         "ready": "/ready",

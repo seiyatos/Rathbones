@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RathBones — Predict</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #e8e8e8;
+      --muted: #888;
+      --accent: #c9a227;
+      --accent-hover: #ddb83a;
+      --commit: #2d7d46;
+      --decline: #b53d35;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 0.25rem 0;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 0 0 1rem 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem 1rem;
+    }
+    .full { grid-column: 1 / -1; }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.5rem 0.65rem;
+      font: inherit;
+      font-size: 0.9rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    input[type="checkbox"] {
+      width: auto;
+      accent-color: var(--accent);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      font: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--bg);
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 1rem;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .result.visible { display: block; }
+    .result.success { background: rgba(45, 125, 70, 0.15); border: 1px solid var(--commit); }
+    .result.decline { background: rgba(181, 61, 53, 0.15); border: 1px solid var(--decline); }
+    .result.error { background: rgba(181, 61, 53, 0.2); border: 1px solid var(--decline); }
+    .result-label {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.35rem;
+    }
+    .result.success .result-label { color: var(--commit); }
+    .result.decline .result-label { color: var(--decline); }
+    .result.error .result-label { color: #e55; }
+    .prob { color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; }
+    .link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+      display: inline-block;
+    }
+    .link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>RathBones</h1>
+    <p class="subtitle">Investor commit / decline prediction</p>
+
+    <div class="card">
+      <h2>Deal inputs</h2>
+      <form id="predictForm" class="grid">
+        <div class="full">
+          <label for="investor">Investor</label>
+          <input type="text" id="investor" name="investor" value="A" placeholder="e.g. A">
+        </div>
+        <div>
+          <label for="deal_size">Deal size</label>
+          <input type="number" id="deal_size" name="deal_size" value="100" min="0" step="1">
+        </div>
+        <div>
+          <label for="invite">Invite</label>
+          <input type="number" id="invite" name="invite" value="10" min="0" step="1">
+        </div>
+        <div>
+          <label for="rating">Rating</label>
+          <input type="number" id="rating" name="rating" value="2" min="0" step="1">
+        </div>
+        <div>
+          <label for="int_rate">Int rate</label>
+          <input type="number" id="int_rate" name="int_rate" value="5" min="0" step="0.1">
+        </div>
+        <div>
+          <label for="covenants">Covenants</label>
+          <input type="number" id="covenants" name="covenants" value="1" min="0" step="1">
+        </div>
+        <div>
+          <label for="total_fees">Total fees</label>
+          <input type="number" id="total_fees" name="total_fees" value="20" min="0" step="1">
+        </div>
+        <div>
+          <label for="fee_share">Fee share</label>
+          <input type="number" id="fee_share" name="fee_share" value="5" min="0" step="1">
+        </div>
+        <div>
+          <label for="prior_tier">Prior tier</label>
+          <input type="number" id="prior_tier" name="prior_tier" value="1" min="0" step="1">
+        </div>
+        <div>
+          <label for="invite_tier">Invite tier</label>
+          <input type="number" id="invite_tier" name="invite_tier" value="1" min="0" step="1">
+        </div>
+        <div class="full row">
+          <input type="checkbox" id="return_proba" name="return_proba" checked>
+          <label for="return_proba" style="margin:0">Include probability of Decline</label>
+        </div>
+        <div class="full">
+          <button type="submit" class="btn" id="submitBtn">Predict</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="result" class="result"></div>
+
+    <a href="/docs" class="link">API docs →</a>
+  </div>
+
+  <script>
+    const form = document.getElementById('predictForm');
+    const resultEl = document.getElementById('result');
+    const submitBtn = document.getElementById('submitBtn');
+
+    function num(val) {
+      const n = parseFloat(val);
+      return Number.isNaN(n) ? 0 : n;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      resultEl.classList.remove('visible', 'success', 'decline', 'error');
+      submitBtn.disabled = true;
+
+      const instance = {
+        investor: document.getElementById('investor').value.trim() || 'A',
+        deal_size: num(document.getElementById('deal_size').value),
+        invite: num(document.getElementById('invite').value),
+        rating: num(document.getElementById('rating').value),
+        int_rate: num(document.getElementById('int_rate').value),
+        covenants: num(document.getElementById('covenants').value),
+        total_fees: num(document.getElementById('total_fees').value),
+        fee_share: num(document.getElementById('fee_share').value),
+        prior_tier: num(document.getElementById('prior_tier').value),
+        invite_tier: num(document.getElementById('invite_tier').value),
+      };
+
+      const body = {
+        instances: [instance],
+        return_proba: document.getElementById('return_proba').checked,
+      };
+
+      try {
+        const res = await fetch('/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          resultEl.className = 'result visible error';
+          resultEl.innerHTML = '<span class="result-label">Error</span><span>' + (data.detail || res.statusText || 'Request failed') + '</span>';
+          return;
+        }
+
+        const pred = data.predictions && data.predictions[0];
+        const prob = data.probabilities_Decline && data.probabilities_Decline[0];
+        const isDecline = pred === 1;
+
+        resultEl.className = 'result visible ' + (isDecline ? 'decline' : 'success');
+        resultEl.innerHTML =
+          '<span class="result-label">' + (isDecline ? 'Decline' : 'Commit') + '</span>' +
+          '<span>' + (isDecline ? 'Prediction: Decline (1)' : 'Prediction: Commit (0)') + '</span>' +
+          (prob != null ? '<div class="prob">P(Decline) = ' + (Math.round(prob * 1000) / 10) + '%</div>' : '');
+      } catch (err) {
+        resultEl.className = 'result visible error';
+        resultEl.innerHTML = '<span class="result-label">Error</span><span>' + (err.message || 'Network error') + '</span>';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
