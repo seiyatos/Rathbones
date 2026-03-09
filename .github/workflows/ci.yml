@@ -33,6 +33,11 @@ jobs:
           pip install --upgrade pip
           pip install -e .
 
+      - name: Lint
+        run: |
+          . .venv/bin/activate
+          ruff check src tests
+
       - name: Run tests
         run: |
           . .venv/bin/activate
