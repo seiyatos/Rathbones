@@ -1,5 +1,5 @@
-# Optional deployment secrets: CONFIG_S3_URI, ARTIFACTS_S3_URI (e.g. s3://bucket/path/config/)
-# so the self-hosted job syncs config and model artifacts before running the container.
+# Optional deployment secrets: CONFIG_S3_URI, ARTIFACTS_S3_URI, FEATURE_REPO_DATA_S3_URI
+# so the self-hosted job syncs config, model artifacts, and Feast feature store data before running the container.
 name: CI-CD Pipeline
 
 on:
@@ -162,15 +162,38 @@ jobs:
         run: |
           mkdir -p "$(pwd)/config"
           mkdir -p "$(pwd)/artifacts"
+          mkdir -p "$(pwd)/feature_repo_data"
+
+      - name: Sync config from S3
+        if: ${{ secrets.CONFIG_S3_URI != '' }}
+        run: aws s3 sync "${{ secrets.CONFIG_S3_URI }}" "$(pwd)/config" --exact-timestamps
+
+      - name: Sync artifacts from S3
+        if: ${{ secrets.ARTIFACTS_S3_URI != '' }}
+        run: |
+          aws s3 sync "${{ secrets.ARTIFACTS_S3_URI }}" "$(pwd)/artifacts" --exact-timestamps
+          ls -la "$(pwd)/artifacts" || true
+
+      - name: Sync feature store data from S3
+        if: ${{ secrets.FEATURE_REPO_DATA_S3_URI != '' }}
+        run: |
+          aws s3 sync "${{ secrets.FEATURE_REPO_DATA_S3_URI }}" "$(pwd)/feature_repo_data" --exact-timestamps
+          echo "Feature repo data:"
+          ls -la "$(pwd)/feature_repo_data" || true
 
       - name: Run Docker image
         run: |
+          MOUNT_FEATURE_DATA=""
+          if [ -n "$(ls -A $(pwd)/feature_repo_data 2>/dev/null)" ]; then
+            MOUNT_FEATURE_DATA="-v $(pwd)/feature_repo_data:/app/feature_repo/data"
+          fi
           docker run -d \
             -p 8000:8000 \
             --name investor-ml \
             --restart unless-stopped \
             -v "$(pwd)/config:/app/config" \
             -v "$(pwd)/artifacts:/app/artifacts" \
+            $MOUNT_FEATURE_DATA \
             -e INVESTOR_ML_CONFIG_PATH=/app/config/config.yaml \
             -e INVESTOR_ML_SERVE_PREDICT_ONLY=1 \
             "${{ steps.image.outputs.image_uri }}"
