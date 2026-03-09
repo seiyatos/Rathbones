@@ -164,22 +164,23 @@ jobs:
           mkdir -p "$(pwd)/artifacts"
           mkdir -p "$(pwd)/feature_repo_data"
 
-      - name: Sync config from S3
-        if: ${{ secrets.CONFIG_S3_URI != '' }}
-        run: aws s3 sync "${{ secrets.CONFIG_S3_URI }}" "$(pwd)/config" --exact-timestamps
-
-      - name: Sync artifacts from S3
-        if: ${{ secrets.ARTIFACTS_S3_URI != '' }}
+      - name: Sync from S3
+        env:
+          CONFIG_S3_URI: ${{ secrets.CONFIG_S3_URI }}
+          ARTIFACTS_S3_URI: ${{ secrets.ARTIFACTS_S3_URI }}
+          FEATURE_REPO_DATA_S3_URI: ${{ secrets.FEATURE_REPO_DATA_S3_URI }}
         run: |
-          aws s3 sync "${{ secrets.ARTIFACTS_S3_URI }}" "$(pwd)/artifacts" --exact-timestamps
-          ls -la "$(pwd)/artifacts" || true
-
-      - name: Sync feature store data from S3
-        if: ${{ secrets.FEATURE_REPO_DATA_S3_URI != '' }}
-        run: |
-          aws s3 sync "${{ secrets.FEATURE_REPO_DATA_S3_URI }}" "$(pwd)/feature_repo_data" --exact-timestamps
-          echo "Feature repo data:"
-          ls -la "$(pwd)/feature_repo_data" || true
+          if [ -n "$CONFIG_S3_URI" ]; then
+            aws s3 sync "$CONFIG_S3_URI" "$(pwd)/config" --exact-timestamps
+          fi
+          if [ -n "$ARTIFACTS_S3_URI" ]; then
+            aws s3 sync "$ARTIFACTS_S3_URI" "$(pwd)/artifacts" --exact-timestamps
+            ls -la "$(pwd)/artifacts" || true
+          fi
+          if [ -n "$FEATURE_REPO_DATA_S3_URI" ]; then
+            aws s3 sync "$FEATURE_REPO_DATA_S3_URI" "$(pwd)/feature_repo_data" --exact-timestamps
+            ls -la "$(pwd)/feature_repo_data" || true
+          fi
 
       - name: Run Docker image
         run: |
