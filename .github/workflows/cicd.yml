@@ -170,17 +170,19 @@ jobs:
           ARTIFACTS_S3_URI: ${{ secrets.ARTIFACTS_S3_URI }}
           FEATURE_REPO_DATA_S3_URI: ${{ secrets.FEATURE_REPO_DATA_S3_URI }}
         run: |
-          if [ -n "$CONFIG_S3_URI" ]; then
-            aws s3 sync "$CONFIG_S3_URI" "$(pwd)/config" --exact-timestamps
-          fi
-          if [ -n "$ARTIFACTS_S3_URI" ]; then
-            aws s3 sync "$ARTIFACTS_S3_URI" "$(pwd)/artifacts" --exact-timestamps
-            ls -la "$(pwd)/artifacts" || true
-          fi
-          if [ -n "$FEATURE_REPO_DATA_S3_URI" ]; then
-            aws s3 sync "$FEATURE_REPO_DATA_S3_URI" "$(pwd)/feature_repo_data" --exact-timestamps
-            ls -la "$(pwd)/feature_repo_data" || true
-          fi
+          WORKSPACE="$(pwd)"
+          docker run --rm \
+            -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
+            -e AWS_REGION -e AWS_DEFAULT_REGION \
+            -e CONFIG_S3_URI -e ARTIFACTS_S3_URI -e FEATURE_REPO_DATA_S3_URI \
+            -v "$WORKSPACE:/workspace" -w /workspace \
+            amazon/aws-cli:2.21.0 \
+            bash -c '
+              if [ -n "$CONFIG_S3_URI" ]; then aws s3 sync "$CONFIG_S3_URI" /workspace/config --exact-timestamps; fi
+              if [ -n "$ARTIFACTS_S3_URI" ]; then aws s3 sync "$ARTIFACTS_S3_URI" /workspace/artifacts --exact-timestamps; fi
+              if [ -n "$FEATURE_REPO_DATA_S3_URI" ]; then aws s3 sync "$FEATURE_REPO_DATA_S3_URI" /workspace/feature_repo_data --exact-timestamps; fi
+            '
+          ls -la "$WORKSPACE/artifacts" 2>/dev/null || true
 
       - name: Run Docker image
         run: |
