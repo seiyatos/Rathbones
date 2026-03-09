@@ -36,7 +36,6 @@ tests
 # Docker
 Dockerfile*
 .dockerignore
-compose*.yml
 *.dockerignore
 
 # OS
